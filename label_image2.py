@@ -138,7 +138,7 @@ def main(args):
         input_operation.outputs[0]: t
     })
   results = np.squeeze(results)
-  # change back to -5 if needed?
+  
   top_k = results.argsort()[-37:][::-1]
   labels = load_labels(label_file)
   finalresults = []
