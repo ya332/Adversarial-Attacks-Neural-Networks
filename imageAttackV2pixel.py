@@ -5,6 +5,7 @@ import random
 import os, re
 import label_image2
 from shutil import copyfile
+import csv
 
 def attack(inputImage, imageCount, minconf, round):
 	# set factor for how many pixels to skip in horizontal and vertical directions between tests
@@ -147,4 +148,7 @@ if __name__ == "__main__":
 		imageCount += 1
 		#if imageCount > 4 :
 		#	break
-	print(results)
+	with open('imageAttackAlterAllPixels.csv', 'w', newline='') as csvfile:
+		writer = csv.writer(csvfile, delimiter= ',', quotechar='|', quoting=csv.QUOTE_MINIMAL)
+		for i in results :
+			writer.writerow(i)

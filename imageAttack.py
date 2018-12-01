@@ -5,6 +5,7 @@ import random
 import os, re
 import label_image2
 from shutil import copyfile
+import csv
 
 def attack(inputImage, imageCount, minconf, round):
 	# set factor for how many pixels to skip in horizontal and vertical directions between tests
@@ -63,6 +64,7 @@ def attack(inputImage, imageCount, minconf, round):
 	else :
 		print("No better attack was found.")
 		newFileName = inputImage
+	# clean up unnecessary files
 	for f in os.listdir('.') :
 		if re.search("attack*", f) :
 			os.remove(os.path.join('.', f))
@@ -70,7 +72,7 @@ def attack(inputImage, imageCount, minconf, round):
 
 def classify (actualperson, filename) :
 	# apply classifier to perturbed image
-	labelresults = label_image2.main(["--graph","/tmp/output_graph.pb","--labelresults","/tmp/output_labelresults.txt","--input_layer","Placeholder","--output_layer","final_result","--image",filename])
+	labelresults = label_image2.main(["--graph","/tmp/output_graph.pb","--labels","/tmp/output_labels.txt","--input_layer","Placeholder","--output_layer","final_result","--image",filename])
 	# extract the person id for the most likely label
 	personclass = labelresults[0][0]
 	# check if mis-classified
@@ -100,7 +102,7 @@ if __name__ == "__main__":
 	for dir in dirList :
 		targetImage = os.path.join("testing", dir, "image0.jpg")
 		success = 0
-		baselineresult = label_image2.main(["--graph","/tmp/output_graph.pb","--labelresults","/tmp/output_labelresults.txt","--input_layer","Placeholder","--output_layer","final_result","--image",targetImage])
+		baselineresult = label_image2.main(["--graph","/tmp/output_graph.pb","--labels","/tmp/output_labels.txt","--input_layer","Placeholder","--output_layer","final_result","--image",targetImage])
 		baselineconf = baselineresult[0][1]		
 		minconf = baselineconf
 		result0 = attack(targetImage, imageCount, minconf, round=0)

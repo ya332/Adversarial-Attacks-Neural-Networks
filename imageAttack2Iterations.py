@@ -5,8 +5,9 @@ import random
 import os, re
 import label_image2
 from shutil import copyfile
+import csv
 
-def attack(inputImage, imageCount, minconf, round):
+def attack(inputImage, actualperson, imageCount, minconf, round):
 	# set factor for how many pixels to skip in horizontal and vertical directions between tests
 	densityFactor = 30
 	# read image
@@ -28,8 +29,6 @@ def attack(inputImage, imageCount, minconf, round):
 			currentpixel = (i + yoffset, j + xoffset)
 			print(testcount)
 			m = cv2.imread(inputImage,0)
-			# extract actual person id from image filename
-			actualperson = inputImage.split('/')[1].lower()
 			# print(actualperson)
 			filename='attack'+str(testcount)+'.jpg'
 			# consider randomizing the perturbation instead of inverting?
@@ -44,7 +43,7 @@ def attack(inputImage, imageCount, minconf, round):
 			success = labelresults[0]
 			# targetconf is the classifier's confidence level that the image is the actual person id
 			targetconf = labelresults[1]
-			# print(actualperson + ": " + str(targetconf)+"\n")
+			print(actualperson + ": " + str(targetconf)+"\n")
 			# update minimum confidence
 			if (targetconf < minconf) :
 				bestpixel = currentpixel
@@ -63,6 +62,7 @@ def attack(inputImage, imageCount, minconf, round):
 	else :
 		print("No better attack was found.")
 		newFileName = inputImage
+	# clean up unnecessary files
 	for f in os.listdir('.') :
 		if re.search("attack*", f) :
 			os.remove(os.path.join('.', f))
@@ -70,7 +70,7 @@ def attack(inputImage, imageCount, minconf, round):
 
 def classify (actualperson, filename) :
 	# apply classifier to perturbed image
-	labelresults = label_image2.main(["--graph","/tmp/output_graph.pb","--labelresults","/tmp/output_labelresults.txt","--input_layer","Placeholder","--output_layer","final_result","--image",filename])
+	labelresults = label_image2.main(["--graph","/tmp/output_graph.pb","--labels","/tmp/output_labels.txt","--input_layer","Placeholder","--output_layer","final_result","--image",filename])
 	# extract the person id for the most likely label
 	personclass = labelresults[0][0]
 	# check if mis-classified
@@ -100,17 +100,20 @@ if __name__ == "__main__":
 	for dir in dirList :
 		targetImage = os.path.join("testing", dir, "image0.jpg")
 		success = 0
-		baselineresult = label_image2.main(["--graph","/tmp/output_graph.pb","--labelresults","/tmp/output_labelresults.txt","--input_layer","Placeholder","--output_layer","final_result","--image",targetImage])
+		baselineresult = label_image2.main(["--graph","/tmp/output_graph.pb","--labels","/tmp/output_labels.txt","--input_layer","Placeholder","--output_layer","final_result","--image",targetImage])
 		baselineconf = baselineresult[0][1]		
+		print(targetImage + "- Baseline confidence: " + str(baselineconf) + "\n")
+		# extract actual person id from image filename
+		actualperson = targetImage.split('/')[1].lower()
 		minconf = baselineconf
-		result0 = attack(targetImage, imageCount, minconf, round=0)
+		result0 = attack(targetImage, actualperson, imageCount, minconf, round=0)
 		success0 = result0[0]
 		minconf0 = result0[1]
 		newImage = result0[2]
 		changeconf0 = minconf0 - baselineconf
 		percentchange0 = changeconf0 / baselineconf
 		# second attack round
-		result1 = attack(newImage, imageCount, minconf, round=1)
+		result1 = attack(newImage, actualperson, imageCount, minconf, round=1)
 		success1 = result1[0]
 		minconf1 = result1[1]
 		newImage = result1[2]
