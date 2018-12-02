@@ -125,4 +125,7 @@ if __name__ == "__main__":
 		imageCount += 1
 		#if imageCount > 4 :
 		#	break
-	print(results)
+	with open('imageAttackAlterAllPixels.csv', 'w', newline='') as csvfile:
+		writer = csv.writer(csvfile, delimiter= ',', quotechar='|', quoting=csv.QUOTE_MINIMAL)
+		for i in results :
+			writer.writerow(i)

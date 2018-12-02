@@ -30,16 +30,10 @@ def attack(inputImage, minconf, maxrounds, initialperturbation, perturbationscal
 		for i in range(0,h) :
 			for j in range(0,w) :
 				# apply perturbation, bounding possible pixel values between 0 and 255
-				if (j % 2 == 1 and i % 2 == 0) or (j % 2 == 0 and i % 2 == 1) :
-					if (m[i][j] + perturbation > 255) :
-						m[i][j] = 255
-					else :
-						m[i][j] = m[i][j] + perturbation
-				elif (j % 2 == 0 and i % 2 == 1) or (j % 2 == 1 and i % 2 == 0) :
-					if (m[i][j] - perturbation < 0) :
-						m[i][j] = 0
-					else :
-						m[i][j] = m[i][j] - perturbation
+				if (m[i][j] + perturbation > 255) :
+					m[i][j] = 255
+				else :
+					m[i][j] = m[i][j] + perturbation
 		# save perturbed image
 		cv2.imwrite(filename,m)
 		# apply classifier to perturbed image
@@ -99,21 +93,21 @@ if __name__ == "__main__":
 	# set test parameters
 	maxrounds = 10
 	initialperturbation = 20
-	perturbationscale = 10	
+	perturbationscale = 10
 	# determine list of test files
-	for fFileObj in os.walk("testing/") :
+	for fFileObj in os.walk("training/") :
 		dirList = fFileObj[1]
 		dirList.sort()
 		print(dirList)
 		break
 	for dir in dirList :
-		targetImage = os.path.join("testing", dir, "image0.jpg")
+		targetImage = os.path.join("training", dir, "image1.jpg")
 		success = 0
 		baselineresult = label_image2.main(["--graph","/tmp/output_graph.pb","--labels","/tmp/output_labels.txt","--input_layer","Placeholder","--output_layer","final_result","--image",targetImage])
 		baselineconf = baselineresult[0][1]		
 		print(targetImage + "- Baseline confidence: " + str(baselineconf) + "\n")
 		minconf = baselineconf
-		result0 = attack(targetImage, minconf, maxrounds=10, initialperturbation=5, perturbationscale=5)
+		result0 = attack(targetImage, minconf, maxrounds, initialperturbation, perturbationscale)
 		success = result0[0]
 		minconf = result0[1]
 		newImage = result0[2]
@@ -122,8 +116,6 @@ if __name__ == "__main__":
 		personclass = result0[4]
 		changeconf = minconf - baselineconf
 		percentchange = changeconf / baselineconf
-		# second attack round
-		# result1 = attack(newImage, imageCount, minconf, round=1)
 		imageresult = [targetImage, changeconf, percentchange, success, perturbationcount, totalperturbation, personclass]
 		results.append(imageresult)
 		print(targetImage + "- Change in confidence: " + str(changeconf) + "\n")

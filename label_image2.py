@@ -139,7 +139,7 @@ def main(args):
     })
   results = np.squeeze(results)
   
-  top_k = results.argsort()[-37:][::-1]
+  top_k = results.argsort()[-38:][::-1]
   labels = load_labels(label_file)
   finalresults = []
   for i in top_k:
