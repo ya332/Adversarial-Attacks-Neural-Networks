@@ -3,14 +3,17 @@ import numpy as np
 import math
 import random
 import os, re
-import label_image2
 from shutil import copyfile
 import csv
 
-def attack(inputImage, imageCount, minconf, round):
-	# set factor for how many pixels to skip in horizontal and vertical directions between tests
-	densityFactor = 30
-	# read image
+import classify
+
+INPUT_DIRECTORY = 'testing/'
+
+def attack(inputImage, actualperson, minconf, baselinesuccess):
+	# set parameter for width and height of each square of image from which a random pixel will be selected to test
+	densityParameter = 24
+	# read input image
 	m = cv2.imread(inputImage,0)
 	h,w = np.shape(m)
 	# initialize variables for keeping track of results
@@ -22,25 +25,31 @@ def attack(inputImage, imageCount, minconf, round):
 	baselineconf = minconf
 	# targetconf will be used to track classifier's confidence that the image is the actual person
 	targetconf = 1
-	for i in range(0,h-densityFactor,densityFactor) :
-		yoffset = random.randint(0,densityFactor-1)
-		for j in range (0,w-densityFactor,densityFactor) :
-			xoffset = random.randint(0,densityFactor-1)
-			currentpixel = (i + yoffset, j + xoffset)
+	# iterate through image height and width, with intervals based on densityParameter, essentially picking one pixel from each densityParameter-by-densityParameter square to test
+	for i in range(0,h,densityParameter) :
+		# use randomized offsets in order to choose a random pixel within each square
+		yoffset = random.randint(0,densityParameter-1)
+		row = i + yoffset
+		for j in range (0,w,densityParameter) :
+			xoffset = random.randint(0,densityParameter-1)
+			col = j + xoffset
+			# bound possible test pixel position based on image size
+			if row > 191 :
+				row = 191
+			if col > 167 :
+				col = 167
+			testpixel = (row, col)
+			# print the index of which pixel test the current one represents
 			print(testcount)
+			# re-read in the unaltered input image from disk
 			m = cv2.imread(inputImage,0)
-			# extract actual person id from image filename
-			actualperson = inputImage.split('/')[1].lower()
-			# print(actualperson)
 			filename='attack'+str(testcount)+'.jpg'
-			# consider randomizing the perturbation instead of inverting?
-			# perturbation = random.randint(64,192)
 			# apply perturbation
 			m[i+yoffset][j+xoffset]=(m[i+yoffset][j+xoffset]+128)%256
 			# save perturbed image
 			cv2.imwrite(filename,m)
 			# apply classifier to perturbed image
-			labelresults = classify(actualperson, filename)			
+			labelresults = classify.classify(actualperson, filename)			
 			# success indicates whether image was misclassified (1=yes, 0=no)
 			success = labelresults[0]
 			# targetconf is the classifier's confidence level that the image is the actual person id
@@ -48,106 +57,99 @@ def attack(inputImage, imageCount, minconf, round):
 			print(actualperson + ": " + str(targetconf)+"\n")
 			# update minimum confidence
 			if (targetconf < minconf) :
-				bestpixel = currentpixel
+				bestpixel = testpixel
 				minconf = targetconf
+				finalsuccess = success
 				bestattack = filename
 			# add result to classresults dictionary
-			classresults[currentpixel] = targetconf
+			classresults[testpixel] = targetconf
 			testcount += 1
-	# if we have found a pixel that reduces the confidence level
+	# if we have found a first pixel that reduces the confidence level
 	if (minconf < baselineconf) :
-		# print("best attack: "+str(bestattack))
-		# print(bestpixel)
-		# print(str(minconf)+"\n")
-		newFileName = actualperson+"-round"+str(round)+".jpg"
-		copyfile(bestattack,newFileName)
+		newFileName1 = actualperson + "-1stpixelround.jpg"
+		copyfile(bestattack,newFileName1)
+		# now, find second best pixel
+		secondbestpixel = ()
+		if bestpixel != () :
+			classresults.pop(bestpixel)
+		nextminconf = 1
+		for (k, v) in classresults.items() :
+			if v < nextminconf :
+				nextminconf = v
+				secondbestpixel = k
+		# perturb second best pixel on output image from perturbing first best pixel
+		m2 = cv2.imread(newFileName1,0)
+		m2[secondbestpixel[0]][secondbestpixel[1]]=(m2[secondbestpixel[0]][secondbestpixel[1]]+128)%256
+		# save perturbed image after second pixel edit
+		newFileName2 = actualperson + "-2ndpixelround.jpg"
+		cv2.imwrite(newFileName2,m2)
+		# apply classifier to perturbed image
+		labelresults2 = classify.classify(actualperson, newFileName2)
+		success2 = labelresults2[0]
+		targetconf2 = labelresults2[1]
+		print("After 2nd pixel change: " + actualperson + ": " + str(targetconf2)+"\n")
+		# if second round improved attack, update success and minimum confidence variables and prepare to return second round perturbed image filename
+		if targetconf2 < minconf :
+			minconf = targetconf2
+			finalsuccess = success2
+			finalFileName = newFileName2
+		# otherwise return the result from the first pixel change
+		else :
+			print("Altering second best pixel did not improve results.")
+			finalFileName = newFileName1
+	# if first pixel did not reduce confidence level, then print that no successful attack was found and make a copy of the original inputimage
 	else :
-		print("No better attack was found.")
-		newFileName = inputImage
-	# find second best pixel
-	secondbestpixel = ()
-	if bestpixel != () :
-		classresults.pop(bestpixel)
-	nextminconf = 1
-	for (k, v) in classresults.items() :
-		if v < nextminconf :
-			nextminconf = v
-			secondbestpixel = k
-	# perturb second best pixel on output image from perturbing first best pixel
-	m2 = cv2.imread(newFileName,0)
-	m2[secondbestpixel[0]][secondbestpixel[1]]=(m2[secondbestpixel[0]][secondbestpixel[1]]+128)%256
-	# save perturbed image after second pixel edit
-	filename2 = actualperson+'-2ndpixelround'+'.jpg'
-	cv2.imwrite(filename2,m2)
-	# apply classifier to perturbed image
-	labelresults2 = classify(actualperson, filename2)
-	success2 = labelresults2[0]
-	targetconf2 = labelresults2[1]
-	print("after 2nd pixel change: " + actualperson + ": " + str(targetconf2)+"\n")
-	# update minimum confidence and success value to return if altering the second pixel improved results
-	if success2 == 1 :
-		success = success2
-	if targetconf2 < minconf :
-		minconf = targetconf2
-	else :
-		print("Altering second best pixel did not improve results.")
-	# clean up unnecessary files
+		print("No successful attack was found.")
+		finalFileName = actualperson + '-NoImprovement.jpg'
+		finalsuccess = baselinesuccess
+		copyfile(inputImage, finalFileName)
+	# clean up unnecessary attack image files
 	for f in os.listdir('.') :
 		if re.search("attack*", f) :
 			os.remove(os.path.join('.', f))
 	# return results
-	return success, minconf, newFileName
+	return finalsuccess, minconf, finalFileName
 
-def classify (actualperson, filename) :
-	# apply classifier to perturbed image
-	labels = label_image2.main(["--graph","/tmp/output_graph.pb","--labels","/tmp/output_labels.txt","--input_layer","Placeholder","--output_layer","final_result","--image",filename])
-	# extract the person id for the most likely label
-	personclass = labels[0][0]
-	# check if mis-classified
-	if personclass != actualperson :
-		# if so, this has been a successful attack
-		success = 1
-	else : 
-		success = 0
-	# find classifier's confidence that the image is the actual person (will not be first listed in case of mis-classification)
-	for k in range(len(labels)) :
-		person = labels[k][0]
-		if person == actualperson :
-			targetconf = labels[k][1]
-	labelresults = [success, targetconf]
-	return labelresults
-			
 if __name__ == "__main__":
-	# initialize count of images to test
-	imageCount = 0
 	# initialize results array
-	results = []
-	for fFileObj in os.walk("testing/") :
+	finalresults = []
+	# walk input image directory and sort list of directories alphabetically
+	for fFileObj in os.walk(INPUT_DIRECTORY) :
 		dirList = fFileObj[1]
 		dirList.sort()
 		print(dirList)
 		break
+	# iterate through each directory, each of which represents a person		
 	for dir in dirList :
-		targetImage = os.path.join("testing", dir, "image0.jpg")
+		targetImage = os.path.join(INPUT_DIRECTORY, dir, "image0.jpg")
+		# extract actual person id from directory name
+		actualperson = dir.lower()
+		# initialize success variable to 0		
 		success = 0
-		baselineresult = label_image2.main(["--graph","/tmp/output_graph.pb","--labels","/tmp/output_labels.txt","--input_layer","Placeholder","--output_layer","final_result","--image",targetImage])
-		baselineconf = baselineresult[0][1]		
+		# determine baseline classifier confidence level for the actual person		
+		baselineresult = classify.classify(actualperson, targetImage)
+		baselinesuccess = baselineresult[0]
+		baselineconf = baselineresult[1]	
 		print(targetImage + "- Baseline confidence: " + str(baselineconf) + "\n")
+		# minconf will be used to keep track of minimum confidence level acheived for target (actual person)		
 		minconf = baselineconf
-		result0 = attack(targetImage, imageCount, minconf, round=0)
-		success = result0[0]
-		minconf = result0[1]
+		# perform attack and extract results
+		result = attack(targetImage, actualperson, minconf, baselinesuccess)
+		# success represents whether or not misclassification was achieved
+		success = result[0]
+		# minconf is minimum confidence acheived for the actual person class
+		minconf = result[1]
 		# newImage is filename of perturbed image
-		newImage = result0[2]
+		newImage = result[2]
 		changeconf = minconf - baselineconf
 		percentchange = changeconf / baselineconf
+		# create array storing attack results and add to array for all image attack results		
 		imageresult = [targetImage, changeconf, percentchange, success]
-		results.append(imageresult)
+		finalresults.append(imageresult)
 		print(targetImage + "- Change in confidence: " + str(changeconf) + "\n")
-		imageCount += 1
-		#if imageCount > 4 :
-		#	break
-	with open('imageAttackAlterAllPixels.csv', 'w', newline='') as csvfile:
+	# write final results to a csv file		
+	with open('imageAttackAlter2Pixel', 'w', newline='') as csvfile:
 		writer = csv.writer(csvfile, delimiter= ',', quotechar='|', quoting=csv.QUOTE_MINIMAL)
-		for i in results :
+		writer.writerow(['TargetImage', 'ChangeInConfidence', 'PercentChangeInConfidence', 'Success'])
+		for i in finalresults :
 			writer.writerow(i)

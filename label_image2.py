@@ -13,7 +13,7 @@
 # limitations under the License.
 # ==============================================================================
 
-# Source updated for use in CS510 Final Project
+# Source updated for use in Drexel University CS510 Final Project
 # 11/19/18
 
 # ==============================================================================

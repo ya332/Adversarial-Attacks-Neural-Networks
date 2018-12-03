@@ -10,10 +10,10 @@ import classify
 
 INPUT_DIRECTORY = 'testing/'
 
-def attack(inputImage, actualperson, minconf, baselinesuccess, round):
+def attack(inputImage, actualperson, minconf, baselinesuccess):
 	# set parameter for width and height of each square of image from which a random pixel will be selected to test
 	densityParameter = 24
-	# read input image
+	# read input image to obtain dimensions
 	m = cv2.imread(inputImage,0)
 	h,w = np.shape(m)
 	# initialize variables for keeping track of results
@@ -68,7 +68,7 @@ def attack(inputImage, actualperson, minconf, baselinesuccess, round):
 	if (minconf < baselineconf) :
 		newFileName = actualperson+"-round"+str(round)+".jpg"
 		copyfile(bestattack,newFileName)
-	# otherwise print that no better result was found and store original input image as newFileName		
+	# otherwise print that no better result was found and store original input image as newFileName
 	else :
 		print("No better result was found.")
 		newFileName = inputImage
@@ -88,7 +88,7 @@ if __name__ == "__main__":
 		dirList.sort()
 		print(dirList)
 		break
-	# iterate through each directory, each of which represents a person		
+	# iterate through each directory, each of which represents a person
 	for dir in dirList :
 		targetImage = os.path.join(INPUT_DIRECTORY, dir, "image0.jpg")
 		# extract actual person id from directory name
@@ -99,11 +99,11 @@ if __name__ == "__main__":
 		baselineresult = classify.classify(actualperson, targetImage)
 		baselinesuccess = baselineresult[0]
 		baselineconf = baselineresult[1]	
-		print(targetImage + "- Baseline confidence: " + str(baselineconf) + "\n")
-		# minconf will be used to keep track of minimum confidence level acheived for target (actual person)		
+		print(targetImage + " - Baseline confidence: " + str(baselineconf) + "\n")
+		# minconf will be used to keep track of minimum confidence level acheived for target (actual person)
 		minconf = baselineconf
-		# perform first round attack and extract results
-		result = attack(targetImage, actualperson, minconf, baselinesuccess, round=0)
+		# perform attack and extract results
+		result = attack(targetImage, actualperson, minconf, baselinesuccess)
 		# success represents whether or not misclassification was achieved
 		success = result[0]
 		# minconf is minimum confidence acheived for the actual person class
@@ -112,20 +112,13 @@ if __name__ == "__main__":
 		newImage = result[2]
 		changeconf = minconf - baselineconf
 		percentchange = changeconf / baselineconf
-		# perform second round attack and extract results
-		result2 = attack(newImage, actualperson, minconf, success, round=1)
-		success2 = result2[0]
-		minconf2 = result2[1]
-		newImage = result2[2]
-		changeconf2 = minconf2 - baselineconf
-		percentchange2 = changeconf2 / baselineconf
-		# create array storing attack results and add to array for all image attack results		
-		imageresult = [targetImage, changeconf, percentchange, success, changeconf2, percentchange2, success2]
+		# create array storing attack results and add to array for all image attack results
+		imageresult = [targetImage, changeconf, percentchange, success]
 		finalresults.append(imageresult)
-		print(targetImage + "- Change in confidence: " + str(changeconf2) + "\n")
-	# write final results to a csv file		
-	with open('imageAttackAlter1Pixel2Iterations.csv', 'w', newline='') as csvfile:
+		print(targetImage + " - Change in confidence: " + str(changeconf) + "\n")
+	# write final results to a csv file
+	with open('imageAttackAlter1Pixel.csv', 'w', newline='') as csvfile:
 		writer = csv.writer(csvfile, delimiter= ',', quotechar='|', quoting=csv.QUOTE_MINIMAL)
-		writer.writerow('TargetImage', 'ChangeInConfidence1stPixel', 'PercentChangeInConfidence1stPixel', 'Success1stPixel',  'ChangeInConfidence2ndPixel', 'PercentChangeInConfidence2ndPixel', 'Success2ndPixel')
+		writer.writerow(['TargetImage', 'ChangeInConfidence', 'PercentChangeInConfidence', 'Success'])
 		for i in finalresults :
 			writer.writerow(i)

@@ -3,123 +3,102 @@ import numpy as np
 import math
 import random
 import os, re
-import label_image2
 from shutil import copyfile
 import csv
 
-def attack(inputImage, imageCount, minconf, round):
+import classify
+
+INPUT_DIRECTORY = 'testing/'
+
+def attack(inputImage, actualperson, minconf, baselinesuccess):
 	# read image
 	m = cv2.imread(inputImage,0)
 	h,w = np.shape(m)
-	# initialize variables for keeping track of results
-	testcount = 0
-	# baseline confidence for this attack
-	baselineconf = minconf
-	# targetconf will be used to track classifier's confidence that the image is the actual person
-	targetconf = 1
-	# print(testcount)
-	m = cv2.imread(inputImage,0)
-	# extract actual person id from image filename
-	actualperson = inputImage.split('/')[1].lower()
-	# print(actualperson)
-	filename='attack'+str(testcount)+'.jpg'
+	filename='attackallpixels.jpg'
 	# apply perturbation
 	for i in range(0,h) :
 		for j in range(0,w) :
-			# consider randomizing the perturbation instead of inverting?
-			perturbation = random.randint(20,50)
-			# apply perturbation, bounding possible pixel values between 0 and 255
-			if j % 2 == 0 :
+			# randomize perturbation between 20 and 50
+			perturbation = random.randint(20,50)		
+			# apply perturbation using checkerboard approach, bounding possible pixel values between 0 and 255
+			if (j % 2 == 1 and i % 2 == 0) or (j % 2 == 0 and i % 2 == 1) :
 				if (m[i][j] + perturbation > 255) :
 					m[i][j] = 255
 				else :
 					m[i][j] = m[i][j] + perturbation
-			elif j % 2 == 1 :
+			elif (j % 2 == 0 and i % 2 == 1) or (j % 2 == 1 and i % 2 == 0) :
 				if (m[i][j] - perturbation < 0) :
 					m[i][j] = 0
 				else :
-					m[i][j] = m[i][j] - perturbation
+					m[i][j] = m[i][j] - perturbation					
 	# save perturbed image
 	cv2.imwrite(filename,m)
 	# apply classifier to perturbed image
-	labelresults = classify(actualperson, filename)
+	labelresults = classify.classify(actualperson, filename)
 	# success indicates whether image was misclassified (1=yes, 0=no)
 	success = labelresults[0]
 	# targetconf is the classifier's confidence level that the image is the actual person id
 	targetconf = labelresults[1]
-	# print(actualperson + ": " + str(targetconf)+"\n")
-	# update minimum confidence
+	# personclass is the id of the person who the classifier classified the image as
+	personclass = labelresults[2]	
+	print(actualperson + ": " + str(targetconf)+"\n")
+	print("classified as: " + personclass)
+	# if the attack reduced the classifier's confidence level
 	if (targetconf < minconf) :
 		minconf = targetconf
-	testcount += 1
-	# if we have found a pixel that reduces the confidence level
-	if (minconf < baselineconf) :
-		# print("best attack: "+str(bestattack))
-		# print(bestpixel)
-		# print(str(minconf)+"\n")
-		newFileName = actualperson+"-round"+str(round)+".jpg"
+		finalsuccess = success
+		newFileName = actualperson+"-final.jpg"
 		copyfile(filename,newFileName)
 	else :
 		print("No better attack was found.")
+		finalsuccess = baselinesuccess
 		newFileName = inputImage
 	# clean up unnecessary files
 	for f in os.listdir('.') :
 		if re.search("attack*", f) :
 			os.remove(os.path.join('.', f))
-	return success, minconf, newFileName
-
-def classify (actualperson, filename) :
-	# apply classifier to perturbed image
-	labelresults = label_image2.main(["--graph","/tmp/output_graph.pb","--labels","/tmp/output_labels.txt","--input_layer","Placeholder","--output_layer","final_result","--image",filename])
-	# extract the person id for the most likely label
-	personclass = labelresults[0][0]
-	# check if mis-classified
-	if personclass != actualperson :
-		# if so, this has been a successful attack
-		success = 1
-	else : 
-		success = 0
-	# find classifier's confidence that the image is the actual person (will not be first listed in case of mis-classification)
-	for k in range(len(labelresults)) :
-		person = labelresults[k][0]
-		if person == actualperson :
-			targetconf = labelresults[k][1]
-	labelresults = [success, targetconf]
-	return labelresults
+	return finalsuccess, minconf, newFileName
 
 if __name__ == "__main__":
-	# initialize count of images to test
-	imageCount = 0
 	# initialize results array
-	results = []
-	for fFileObj in os.walk("testing/") :
+	finalresults = []
+	# walk input image directory and sort list of directories alphabetically
+	for fFileObj in os.walk(INPUT_DIRECTORY) :
 		dirList = fFileObj[1]
 		dirList.sort()
 		print(dirList)
 		break
+	# iterate through each directory, each of which represents a person
 	for dir in dirList :
-		targetImage = os.path.join("testing", dir, "image0.jpg")
+		targetImage = os.path.join(INPUT_DIRECTORY, dir, "image0.jpg")
+		# extract actual person id from directory name
+		actualperson = dir.lower()
+		# initialize success variable to 0		
 		success = 0
-		baselineresult = label_image2.main(["--graph","/tmp/output_graph.pb","--labels","/tmp/output_labels.txt","--input_layer","Placeholder","--output_layer","final_result","--image",targetImage])
-		baselineconf = baselineresult[0][1]		
+		# determine baseline classifier confidence level for the actual person		
+		baselineresult = classify.classify(actualperson, targetImage)
+		baselinesuccess = baselineresult[0]
+		baselineconf = baselineresult[1]	
 		print(targetImage + "- Baseline confidence: " + str(baselineconf) + "\n")
+		# minconf will be used to keep track of minimum confidence level acheived for target (actual person)		
 		minconf = baselineconf
-		result0 = attack(targetImage, imageCount, minconf, round=0)
-		success = result0[0]
-		minconf = result0[1]
-		newImage = result0[2]
+		# perform attack and extract results		
+		result = attack(targetImage, actualperson, minconf, baselinesuccess)
+		# success represents whether or not misclassification was achieved
+		success = result[0]
+		# minconf is minimum confidence acheived for the actual person class
+		minconf = result[1]
+		# newImage is filename of perturbed image
+		newImage = result[2]
 		changeconf = minconf - baselineconf
 		percentchange = changeconf / baselineconf
-		# second attack round
-		# result1 = attack(newImage, imageCount, minconf, round=1)
+		# create array storing attack results and add to array for all image attack results		
 		imageresult = [targetImage, changeconf, percentchange, success]
-		results.append(imageresult)
+		finalresults.append(imageresult)
 		print(targetImage + "- Change in confidence: " + str(changeconf) + "\n")
-		imageCount += 1
-		#if imageCount > 4 :
-		#	break
-	print(results)
+	# write final results to a csv file		
 	with open('imageAttackAlterAllPixels.csv', 'w', newline='') as csvfile:
 		writer = csv.writer(csvfile, delimiter= ',', quotechar='|', quoting=csv.QUOTE_MINIMAL)
-		for i in results :
+		writer.writerow(['TargetImage', 'ChangeInConfidence', 'PercentChangeInConfidence', 'Success'])
+		for i in finalresults :
 			writer.writerow(i)
