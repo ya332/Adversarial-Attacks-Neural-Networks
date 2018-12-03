@@ -18,8 +18,8 @@ def attack(inputImage, actualperson, minconf, baselinesuccess):
 	# apply perturbation
 	for i in range(0,h) :
 		for j in range(0,w) :
-			# randomize perturbation between 20 and 50
-			perturbation = random.randint(20,50)		
+			# randomize perturbation between 20 and 60
+			perturbation = random.randint(20,60)
 			# apply perturbation using checkerboard approach, bounding possible pixel values between 0 and 255
 			if (j % 2 == 1 and i % 2 == 0) or (j % 2 == 0 and i % 2 == 1) :
 				if (m[i][j] + perturbation > 255) :
