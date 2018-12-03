@@ -41,7 +41,7 @@ def attack(inputImage, actualperson, minconf, baselinesuccess):
 	targetconf = labelresults[1]
 	# personclass is the id of the person who the classifier classified the image as
 	personclass = labelresults[2]	
-	print(actualperson + ": " + str(targetconf)+"\n")
+	print(actualperson + ": " + str(targetconf))
 	print("classified as: " + personclass)
 	# if the attack reduced the classifier's confidence level
 	if (targetconf < minconf) :
