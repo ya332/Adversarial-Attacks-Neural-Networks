@@ -126,6 +126,6 @@ if __name__ == "__main__":
 	# write final results to a csv file		
 	with open('imageAttackAlter1Pixel2Iterations.csv', 'w', newline='') as csvfile:
 		writer = csv.writer(csvfile, delimiter= ',', quotechar='|', quoting=csv.QUOTE_MINIMAL)
-		writer.writerow('TargetImage', 'ChangeInConfidence1stPixel', 'PercentChangeInConfidence1stPixel', 'Success1stPixel',  'ChangeInConfidence2ndPixel', 'PercentChangeInConfidence2ndPixel', 'Success2ndPixel')
+		writer.writerow(['TargetImage', 'ChangeInConfidence1stPixel', 'PercentChangeInConfidence1stPixel', 'Success1stPixel',  'ChangeInConfidence2ndPixel', 'PercentChangeInConfidence2ndPixel', 'Success2ndPixel'])
 		for i in finalresults :
 			writer.writerow(i)

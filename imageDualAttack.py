@@ -33,7 +33,7 @@ if __name__ == "__main__":
 		# minconf will be used to keep track of minimum confidence level acheived for target (actual person)		
 		minconf = baselineconf
 		# perform change-best-2-pixels attack
-		result = imageAttackAllPixels.attack(newImage, actualperson, minconf, success)
+		result = imageAttackAllPixels.attack(targetImage, actualperson, minconf, baselinesuccess)
 		# success represents whether or not misclassification was achieved
 		success = result[0]
 		# minconf is minimum confidence acheived for the actual person class
@@ -44,7 +44,7 @@ if __name__ == "__main__":
 		percentchange = changeconf / baselineconf
 		print(targetImage + " - Change in confidence phase 1: " + str(changeconf) + "\n")
 		# now perform alter-all-pixels attack on the output of the change-best-2-pixels attack
-		result2 = imageAttack2Pixels.attack(targetImage, actualperson, minconf, baselinesuccess)
+		result2 = imageAttack2Pixels.attack(newImage, actualperson, minconf, success)
 		success2 = result2[0]
 		minconf2 = result2[1]
 		finalImage = result2[2]
