@@ -15,7 +15,7 @@ def attack(inputImage, actualperson, minconf, baselinesuccess, maxrounds, initia
 	m = cv2.imread(inputImage,0)
 	h,w = np.shape(m)
 	# initialize variable for keeping track of number of perturbations
-	perturbationcount = 1
+	perturbationcount = 0
 	# baseline confidence for this attack
 	baselineconf = minconf
 	# set initial perturbation values
@@ -74,7 +74,7 @@ if __name__ == "__main__":
 	finalresults = []
 	# set test parameters
 	maxrounds = 10
-	initialperturbation = 20
+	initialperturbation = 10
 	perturbationscale = 10	
 	# walk input image directory and sort list of directories alphabetically
 	for fFileObj in os.walk(INPUT_DIRECTORY) :
